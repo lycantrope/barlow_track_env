@@ -29,7 +29,7 @@ ENVS = {
     "BLOSC_NOLOCK": "1",
     "BLOSC_NTHREADS": "1",
     # Tensorflow has memory flushing problems, so disallow gpu
-    "CUDA_VISIBLE_DEVICES": "-1",
+    # "CUDA_VISIBLE_DEVICES": "-1",
 }
 
 os.environ.update(ENVS)
