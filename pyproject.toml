@@ -33,6 +33,10 @@ dependencies = [
     "tables>=3.10.2",
     "tensorflow>=2.18.1 ; sys_platform == 'win32'",
     "tensorflow[and-cuda]>=2.18.1 ; sys_platform == 'linux'",
+    "torch>=2.0.1",
+    "torch-geometric>=2.7.0",
+    "torch-sparse>=0.6.18",
+    "torchvision>=0.15.2",
     "tqdm>=4.67.3",
     "wandb>=0.24.2",
     "wbfm",
@@ -44,6 +48,8 @@ barlow-track = { git = "https://github.com/Zimmer-lab/barlow_track", rev = "main
 imutils = { git = "https://github.com/Zimmer-lab/imutils", rev = "master" }
 ndx-multichannel-volume = { git = "https://github.com/focolab/ndx-multichannel-volume" }
 
+[tool.uv.extra-build-dependencies]
+torch-sparse = ["torch"]
 
 [dependency-groups]
 dev = ["ipykernel>=7.1.0", "ruff>=0.15.0"]
