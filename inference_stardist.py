@@ -34,20 +34,25 @@ def inference():
     parser.add_argument("--model_path", type=str, required=True)
     parser.add_argument("--image", type=str, required=True)
     parser.add_argument("--output", type=str)
-    cfg = parser.parse_args()
 
+    cfg = parser.parse_args()
     model_path = Path(cfg.model_path)
+    image_path = cfg.image
+    output = cfg.output
+
     config_path = model_path.joinpath("config.json")
+
     if not config_path.is_file():
         parser.error(f"model_path is not a stardist folder: {cfg.model_path}")
 
-    output = cfg.output
-
     if output is None:
-        output = Path(cfg.image).parent.parent / "pred"
-        output.mkdir(exist_ok=True)
+        output = Path(image_path).parent / "pred"
+    else:
+        output = Path(output)
 
-    images = sorted(glob(cfg.input), key=lambda x: x.name)
+    output.mkdir(exist_ok=True)
+
+    images = sorted(glob(image_path), key=lambda x: x.name)
 
     config = sdw.Config3D(**json.load(config_path.open("r")))
     model = sdw.StarDist3DCustom(
