@@ -33,15 +33,15 @@ def imread(hdf_path: os.PathLike) -> np.ndarray:
     return data
 
 
-def glob(path: os.PathLike) -> Iterator[Path]:
+def glob(path: str) -> Iterator[Path]:
     # This function mimic the glob.glob
-    path = Path(path)
-    return path.parent.glob(path.name)
+    path_obj = Path(path)
+    return path_obj.parent.glob(path_obj.name)
 
 
 def load_training_images(
-    path_train_images: os.PathLike,
-    path_train_labels: os.PathLike,
+    path_train_images: str,
+    path_train_labels: str,
 ):
     """Load images for training StarDist3DCustom"""
 
@@ -91,12 +91,12 @@ def train():
     parser = argparse.ArgumentParser()
 
     class Config(NamedTuple):
-        image: os.PathLike
-        label: os.PathLike
+        image: str
+        label: str
         epochs: int
 
-    parser.add_argument("--image", type=os.PathLike, required=True)
-    parser.add_argument("--label", type=os.PathLike, required=True)
+    parser.add_argument("--image", type=str, required=True)
+    parser.add_argument("--label", type=str, required=True)
     parser.add_argument("--epochs", type=int, default=500)
 
     cfg = parser.parse_args(namespace=Config)
