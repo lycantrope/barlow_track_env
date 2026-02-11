@@ -112,6 +112,8 @@ def train():
         epochs=cfg.epochs,
     )
 
+    model.optimize_thresholds(X_val, Y_val)
+
 
 if __name__ == "__main__":
     train()
