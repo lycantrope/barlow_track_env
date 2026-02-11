@@ -2,7 +2,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
-from typing import Iterator, NamedTuple
+from typing import Iterator
 
 import CellTracker.stardistwrapper as sdw
 import h5py
@@ -90,16 +90,11 @@ X[0].shape={X[0].shape}
 def train():
     parser = argparse.ArgumentParser()
 
-    class Config(NamedTuple):
-        image: str
-        label: str
-        epochs: int
-
     parser.add_argument("--image", type=str, required=True)
     parser.add_argument("--label", type=str, required=True)
     parser.add_argument("--epochs", type=int, default=500)
 
-    cfg = parser.parse_args(namespace=Config)
+    cfg = parser.parse_args()
 
     X, Y, X_trn, Y_trn, X_val, Y_val, n_channel = load_training_images(
         cfg.image,
