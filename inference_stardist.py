@@ -32,7 +32,7 @@ def glob(path: str) -> Iterator[Path]:
 def inference():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, required=True)
-    parser.add_argument("--images", type=str, required=True)
+    parser.add_argument("--image", type=str, required=True)
     parser.add_argument("--output", type=str)
     cfg = parser.parse_args()
 
