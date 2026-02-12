@@ -107,9 +107,9 @@ def stardist_configure(
         conf = Config3D(**json.load(config_path.open("r")))
 
     print_dict(vars(conf))
-    assert conf.unet_n_depth == unet_n_depth
-    assert conf.grid == grid_norm
-    assert conf.unet_pool == unet_pool
+    assert conf.unet_n_depth == unet_n_depth, f"{conf.unet_n_depth} != {unet_n_depth}"
+    assert conf.grid == grid_norm, f"{conf.grid} != {grid_norm}"
+    assert conf.unet_pool == unet_pool, f"{conf.unet_pool} != {unet_pool}"
 
     if use_gpu:
         from csbdeep.utils.tf import limit_gpu_memory
