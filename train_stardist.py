@@ -248,9 +248,9 @@ def train_and_inference():
         (labels, details), prob_map = model.predict_instances(img)
         imwrite(output / f"pred_{model_name}_{im_p.name}", labels.astype("u2"))
 
-    # Try to save final weights manually
-    model.keras_model.save_weights(
-        str(Path.home() / STARDIST_MODELS / model_name / "weights_manual.h5")
+    # Save final model as keras files
+    model.keras_model.save(
+        str(Path.home() / STARDIST_MODELS / model_name / "weights_manual.keras")
     )
 
 
