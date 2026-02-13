@@ -122,12 +122,14 @@ def stardist_configure(
     model = StarDist3DCustom(config=conf, name=model_name, basedir=basedir)
     if model_home.joinpath("weights_manual.keras").is_file():
         model.keras_model.load_weights(model_home.joinpath("weights_manual.keras"))
+        print("Load model from weights_manual.keras")
     elif model_home.joinpath("weights_best.h5").is_file():
         model.keras_model.load_weights(
             model_home.joinpath("weights_best.h5"),
             by_name=True,
             skip_mismatch=True,
         )
+        print("Load model from weights_best.h5")
 
     median_size = calculate_extents(Y, np.median)
     fov = np.array(model._axes_tile_overlap("ZYX"))
