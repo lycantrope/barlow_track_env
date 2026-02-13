@@ -120,6 +120,14 @@ def stardist_configure(
         # limit_gpu_memory(None, allow_growth=True)
 
     model = StarDist3DCustom(config=conf, name=model_name, basedir=basedir)
+    if model_home.joinpath("weights_manual.keras").is_file():
+        model.keras_model.load_weights(model_home.joinpath("weights_manual.keras"))
+    elif model_home.joinpath("weights_best.h5").is_file():
+        model.keras_model.load_weights(
+            model_home.joinpath("weights_best.h5"),
+            by_name=True,
+            skip_mismatch=True,
+        )
 
     median_size = calculate_extents(Y, np.median)
     fov = np.array(model._axes_tile_overlap("ZYX"))
@@ -237,6 +245,10 @@ def train_and_inference():
         epochs=cfg.epochs,
     )
 
+    # Save final model as keras files
+    model.keras_model.save(
+        str(Path.home() / STARDIST_MODELS / model_name / "weights_manual.keras")
+    )
     model.optimize_thresholds(X_val, Y_val)
 
     # make inference of all data
