@@ -50,44 +50,44 @@ def stardist_configure(
 ):
     # extents = calculate_extents(Y)
     # anisotropy = tuple(np.max(extents) / extents)
-    anisotropy = (1.0, 1.0, 1.0)
-    print("empirical anisotropy of labeled objects = %s" % str(anisotropy))
-
-    # 96 is a good default choice (see 1_data.ipynb)
-    n_rays = 96
+    model_home = Path.home() / basedir / model_name
+    config_path = model_home / "config.json"
 
     # Use OpenCL-based computations for data generator during training (requires 'gputools')
     use_gpu = False and gputools_available()
 
-    # Predict on subsampled grid for increased efficiency and larger field of view
-    grid = tuple(1 if a > 1.5 else 2 for a in anisotropy)
-
-    # Use rays on a Fibonacci lattice adjusted for measured anisotropy of the training data
-    rays = Rays_GoldenSpiral(n_rays, anisotropy=anisotropy)
-
-    # Set train_patch_size which should
-    # 1. match anisotropy and under a predefined limitation
-    a, b, c = anisotropy
-    train_patch_size = np.cbrt(up_limit * a * b * c) / np.array([a, b, c])
-    # 2. less than the image size
-    up_limit_xyz = Y[0].shape[0], np.min(Y[0].shape[1:3]), np.min(Y[0].shape[1:3])
-    scaling = np.min(np.asarray(up_limit_xyz) / train_patch_size)
-    if scaling < 1:
-        train_patch_size = train_patch_size * scaling
-    # 3. can be divided by div_by (related to unet architecture)
-    # Increase unet_n_depth from 2 to 3
-    unet_n_depth = 2  #
-    grid_norm = _normalize_grid(grid, 3)
-    unet_pool = 2, 2, 2
-    div_by = tuple(p**unet_n_depth * g for p, g in zip(unet_pool, grid_norm))
-    print(f"div_by={div_by}")
-    train_patch_size = [int(d * (i // d)) for i, d in zip(train_patch_size, div_by)]
-    # 4. size of x and y should be the same (since augmentation will flip x-y axes)
-    train_patch_size[1] = train_patch_size[2] = min(train_patch_size[1:])
-
-    model_home = Path.home() / basedir / model_name
-    config_path = model_home / "config.json"
     if not config_path.is_file():
+        anisotropy = (1.0, 1.0, 1.0)
+        print("empirical anisotropy of labeled objects = %s" % str(anisotropy))
+
+        # 96 is a good default choice (see 1_data.ipynb)
+        n_rays = 96
+
+        # Predict on subsampled grid for increased efficiency and larger field of view
+        grid = tuple(1 if a > 1.5 else 2 for a in anisotropy)
+
+        # Use rays on a Fibonacci lattice adjusted for measured anisotropy of the training data
+        rays = Rays_GoldenSpiral(n_rays, anisotropy=anisotropy)
+
+        # Set train_patch_size which should
+        # 1. match anisotropy and under a predefined limitation
+        a, b, c = anisotropy
+        train_patch_size = np.cbrt(up_limit * a * b * c) / np.array([a, b, c])
+        # 2. less than the image size
+        up_limit_xyz = Y[0].shape[0], np.min(Y[0].shape[1:3]), np.min(Y[0].shape[1:3])
+        scaling = np.min(np.asarray(up_limit_xyz) / train_patch_size)
+        if scaling < 1:
+            train_patch_size = train_patch_size * scaling
+        # 3. can be divided by div_by (related to unet architecture)
+        # Increase unet_n_depth from 2 to 3
+        unet_n_depth = 2  #
+        grid_norm = _normalize_grid(grid, 3)
+        unet_pool = (2, 2, 2)
+        div_by = tuple(p**unet_n_depth * g for p, g in zip(unet_pool, grid_norm))
+        print(f"div_by={div_by}")
+        train_patch_size = [int(d * (i // d)) for i, d in zip(train_patch_size, div_by)]
+        # 4. size of x and y should be the same (since augmentation will flip x-y axes)
+        train_patch_size[1] = train_patch_size[2] = min(train_patch_size[1:])
         conf = Config3D(
             rays=rays,
             grid=grid,
@@ -102,16 +102,16 @@ def stardist_configure(
             # use sigmoid in last layer
             unet_last_activation="relu",
         )
+        assert (
+            conf.unet_n_depth == unet_n_depth
+        ), f"{conf.unet_n_depth} != {unet_n_depth}"
+        assert conf.grid == grid_norm, f"{conf.grid} != {grid_norm}"
+        assert conf.unet_pool == unet_pool, f"{conf.unet_pool} != {unet_pool}"
+
     else:
         conf = Config3D(**json.load(config_path.open("r")))
 
-    conf.grid = tuple(conf.grid)
-    conf.unet_pool = tuple(conf.unet_pool)
     print_dict(vars(conf))
-    assert conf.unet_n_depth == unet_n_depth, f"{conf.unet_n_depth} != {unet_n_depth}"
-    assert conf.grid == grid_norm, f"{conf.grid} != {grid_norm}"
-    assert conf.unet_pool == unet_pool, f"{conf.unet_pool} != {unet_pool}"
-
     if use_gpu:
         from csbdeep.utils.tf import limit_gpu_memory
 
@@ -121,12 +121,12 @@ def stardist_configure(
         # limit_gpu_memory(None, allow_growth=True)
 
     model = StarDist3DCustom(config=conf, name=model_name, basedir=basedir)
-    if model_home.joinpath("weights_manual.keras").is_file():
-        model.keras_model.load_weights(model_home.joinpath("weights_manual.keras"))
+    if (model_home / "weights_manual.keras").is_file():
+        model.keras_model.load_weights(str(model_home / "weights_manual.keras"))
         print("Load model from weights_manual.keras")
-    elif model_home.joinpath("weights_best.h5").is_file():
+    elif (model_home / "weights_best.h5").is_file():
         model.keras_model.load_weights(
-            model_home.joinpath("weights_best.h5"),
+            str(model_home / "weights_manual.keras"),
             by_name=True,
             skip_mismatch=True,
         )
