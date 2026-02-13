@@ -126,7 +126,7 @@ def stardist_configure(
         print("Load model from weights_manual.keras")
     elif (model_home / "weights_best.h5").is_file():
         model.keras_model.load_weights(
-            str(model_home / "weights_manual.keras"),
+            str(model_home / "weights_best.h5"),
             by_name=True,
             skip_mismatch=True,
         )
