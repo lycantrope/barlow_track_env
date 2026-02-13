@@ -41,6 +41,82 @@ def print_dict(my_dict: dict):
         print(f"{key}: {my_dict[key]}")
 
 
+def plot_max_projection(im: np.ndarray, axis=0):
+    im_max = np.max(im, axis=axis)
+    fig = plt.figure(figsize=(3, 3))
+    ax = fig.add_subplot(111)
+    ax.xaxis.set_major_locator(mticker.NullLocator())
+    ax.yaxis.set_major_locator(mticker.NullLocator())
+    ax.imshow(im_max)
+    fig.tight_layout()
+
+
+def glob(path: str) -> Iterator[Path]:
+    # This function mimic the glob.glob
+    path_obj = Path(path)
+    return path_obj.parent.glob(path_obj.name)
+
+
+def imread(hdf_path: os.PathLike) -> np.ndarray:
+    with h5py.File(hdf_path, mode="r") as handler:
+        data = np.asarray(handler["data"])
+    return data
+
+
+def imwrite(hdf_path: os.PathLike, data: np.ndarray) -> np.ndarray:
+    with h5py.File(hdf_path, mode="w") as handler:
+        handler.create_dataset("data", data=data)
+
+
+def load_training_images(
+    path_train_images: List[Path],
+    path_train_labels: List[Path],
+):
+    """Load images for training StarDist3DCustom"""
+    assert all(
+        Path(x).name == Path(y).name
+        for x, y in zip(path_train_images, path_train_labels)
+    ), "Error: Filenames in X and Y do not match."
+    assert len(path_train_images) > 0, "Error: No images found in either X or Y."
+
+    X = list(map(imread, path_train_images))
+    Y = list(map(imread, path_train_labels))
+    n_channel = 1 if X[0].ndim == 3 else X[0].shape[-1]
+    axis_norm = (0, 1, 2)  # normalize channels independently
+    # axis_norm = (0,1,2,3) # normalize channels jointly
+    if n_channel > 1:
+        print(
+            "Normalizing image channels %s."
+            % ("jointly" if axis_norm is None or 3 in axis_norm else "independently")
+        )
+        sys.stdout.flush()
+
+    X = [normalize(x, 1, 99.8, axis=axis_norm) for x in tqdm(X)]
+    Y = [fill_label_holes(y) for y in tqdm(Y)]
+    if len(X) == 1:
+        print(
+            "Warning: only one training data was provided! It will be used for both training and validation purposes!"
+        )
+        X = [X[0], X[0]]
+        Y = [Y[0], Y[0]]
+
+    # Shuffle Data
+    rng = np.random.RandomState()
+    ind = rng.permutation(len(X))
+    n_val = max(1, int(round(0.15 * len(ind))))
+    ind_train, ind_val = ind[:-n_val], ind[-n_val:]
+    X_val, Y_val = [X[i] for i in ind_val], [Y[i] for i in ind_val]
+    X_trn, Y_trn = [X[i] for i in ind_train], [Y[i] for i in ind_train]
+    print(
+        f"""number of images:{len(X):>4d}
+- training:{len(X_trn):>10d}       
+- validation:{len(X_val):>8d}
+X[0].shape={X[0].shape}   
+"""
+    )
+    return X, Y, X_trn, Y_trn, X_val, Y_val, n_channel
+
+
 def stardist_configure(
     Y: List[np.ndarray],
     n_channel: int,
@@ -48,8 +124,6 @@ def stardist_configure(
     model_name: str = "stardist",
     basedir: str = STARDIST_MODELS,
 ):
-    # extents = calculate_extents(Y)
-    # anisotropy = tuple(np.max(extents) / extents)
     model_home = Path.home() / basedir / model_name
     config_path = model_home / "config.json"
 
@@ -57,6 +131,8 @@ def stardist_configure(
     use_gpu = False and gputools_available()
 
     if not config_path.is_file():
+        # extents = calculate_extents(Y)
+        # anisotropy = tuple(np.max(extents) / extents)
         anisotropy = (1.0, 1.0, 1.0)
         print("empirical anisotropy of labeled objects = %s" % str(anisotropy))
 
@@ -121,16 +197,20 @@ def stardist_configure(
         # limit_gpu_memory(None, allow_growth=True)
 
     model = StarDist3DCustom(config=conf, name=model_name, basedir=basedir)
-    if (model_home / "weights_manual.keras").is_file():
-        model.keras_model.load_weights(str(model_home / "weights_manual.keras"))
-        print("Load model from weights_manual.keras")
-    elif (model_home / "weights_best.h5").is_file():
-        model.keras_model.load_weights(
-            str(model_home / "weights_best.h5"),
-            by_name=True,
-            skip_mismatch=True,
-        )
-        print("Load model from weights_best.h5")
+
+    # [("name", kwargs), ...,]
+    weight_candidates = [
+        ("weights_best.keras", {}),
+        ("weights_best.h5", dict(by_name=True, skip_mismatch=True)),
+        ("weights_last.h5", dict(by_name=True, skip_mismatch=True)),
+    ]
+
+    for _w, kws in weight_candidates:
+        _w = model_home / _w
+        if _w.is_file():
+            model.keras_model.load_weights(str(_w), **kws)
+            print(f"Load model from {_w.name}")
+            break
 
     median_size = calculate_extents(Y, np.median)
     fov = np.array(model._axes_tile_overlap("ZYX"))
@@ -144,81 +224,6 @@ def stardist_configure(
     return model
 
 
-def plot_max_projection(im: np.ndarray, axis=0):
-    im_max = np.max(im, axis=axis)
-    fig = plt.figure(figsize=(3, 3))
-    ax = fig.add_subplot(111)
-    ax.xaxis.set_major_locator(mticker.NullLocator())
-    ax.yaxis.set_major_locator(mticker.NullLocator())
-    ax.imshow(im_max)
-    fig.tight_layout()
-
-
-def imread(hdf_path: os.PathLike) -> np.ndarray:
-    with h5py.File(hdf_path, mode="r") as handler:
-        data = np.asarray(handler["data"])
-    return data
-
-
-def glob(path: str) -> Iterator[Path]:
-    # This function mimic the glob.glob
-    path_obj = Path(path)
-    return path_obj.parent.glob(path_obj.name)
-
-
-def load_training_images(
-    path_train_images: List[Path],
-    path_train_labels: List[Path],
-):
-    """Load images for training StarDist3DCustom"""
-    assert (
-        len(path_train_images) > 0 and len(path_train_labels) > 0
-    ), "Error: No images found in either X or Y."
-    assert all(
-        Path(x).name == Path(y).name
-        for x, y in zip(path_train_images, path_train_labels)
-    ), "Error: Filenames in X and Y do not match."
-    X = list(map(imread, path_train_images))
-    Y = list(map(imread, path_train_labels))
-    n_channel = 1 if X[0].ndim == 3 else X[0].shape[-1]
-    axis_norm = (0, 1, 2)  # normalize channels independently
-    # axis_norm = (0,1,2,3) # normalize channels jointly
-    if n_channel > 1:
-        print(
-            "Normalizing image channels %s."
-            % ("jointly" if axis_norm is None or 3 in axis_norm else "independently")
-        )
-        sys.stdout.flush()
-
-    X = [normalize(x, 1, 99.8, axis=axis_norm) for x in tqdm(X)]
-    Y = [fill_label_holes(y) for y in tqdm(Y)]
-    if len(X) == 1:
-        print(
-            "Warning: only one training data was provided! It will be used for both training and validation purposes!"
-        )
-        X = [X[0], X[0]]
-        Y = [Y[0], Y[0]]
-    rng = np.random.RandomState()
-    ind = rng.permutation(len(X))
-    n_val = max(1, int(round(0.15 * len(ind))))
-    ind_train, ind_val = ind[:-n_val], ind[-n_val:]
-    X_val, Y_val = [X[i] for i in ind_val], [Y[i] for i in ind_val]
-    X_trn, Y_trn = [X[i] for i in ind_train], [Y[i] for i in ind_train]
-    print(
-        f"""number of images:{len(X):>4d}
-- training:{len(X_trn):>10d}       
-- validation:{len(X_val):>8d}
-X[0].shape={X[0].shape}   
-"""
-    )
-    return X, Y, X_trn, Y_trn, X_val, Y_val, n_channel
-
-
-def imwrite(hdf_path: os.PathLike, data: np.ndarray) -> np.ndarray:
-    with h5py.File(hdf_path, mode="w") as handler:
-        handler.create_dataset("data", data=data)
-
-
 def train_and_inference():
     parser = argparse.ArgumentParser()
 
@@ -226,6 +231,7 @@ def train_and_inference():
     parser.add_argument("--label", type=str, required=True)
     parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--model_name", type=str, default="stardist_3d")
+    parser.add_argument("--no_inference", type="store_true")
 
     cfg = parser.parse_args()
 
@@ -250,9 +256,12 @@ def train_and_inference():
 
     # Save final model as keras files
     model.keras_model.save(
-        str(Path.home() / STARDIST_MODELS / model_name / "weights_manual.keras")
+        str(Path.home() / STARDIST_MODELS / model_name / "weights_best.keras")
     )
+
     model.optimize_thresholds(X_val, Y_val)
+    if cfg.no_inference:
+        return
 
     # make inference of all data
     output = path_train_images[0].parent.parent / "pred"
@@ -261,12 +270,9 @@ def train_and_inference():
     for im_p, img in tqdm(zip(path_train_images, X)):
         # normalizing images (stardist function)
         (labels, details), prob_map = model.predict_instances(img)
+        # ImageJ supported the reading of "u2/uint16" dataset.
+        # If your labels will exceeded over 65535, please change to other types (uint32)
         imwrite(output / f"pred_{model_name}_{im_p.name}", labels.astype("u2"))
-
-    # Save final model as keras files
-    model.keras_model.save(
-        str(Path.home() / STARDIST_MODELS / model_name / "weights_manual.keras")
-    )
 
 
 if __name__ == "__main__":
