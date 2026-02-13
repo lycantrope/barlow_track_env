@@ -105,8 +105,8 @@ def stardist_configure(
     else:
         conf = Config3D(**json.load(config_path.open("r")))
 
-    conf.conf.grid = tuple(conf.grid)
-    conf.conf.unet_pool = tuple(conf.unet_pool)
+    conf.grid = tuple(conf.grid)
+    conf.unet_pool = tuple(conf.unet_pool)
     print_dict(vars(conf))
     assert conf.unet_n_depth == unet_n_depth, f"{conf.unet_n_depth} != {unet_n_depth}"
     assert conf.grid == grid_norm, f"{conf.grid} != {grid_norm}"
