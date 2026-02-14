@@ -1,8 +1,12 @@
 import argparse
+import os
 
+import hdf5plugin
 from wbfm.pipeline.project_initialization import preprocess_fluorescence_data
 from wbfm.utils.external.monkeypatch_json import using_monkeypatch
 from wbfm.utils.projects.project_config_classes import ModularProjectConfig
+
+os.environ["HDF5_PLUGIN_PATH"] = hdf5plugin.PLUGINS_PATH
 
 
 def preprocess():

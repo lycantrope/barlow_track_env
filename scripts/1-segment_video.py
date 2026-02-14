@@ -54,7 +54,7 @@ def segment_video():
         using_monkeypatch()
 
     project_cfg = ModularProjectConfig(project_path)
-    project_cfg.setup_logger("step_1.log")
+    logger = project_cfg.setup_logger("step_1.log")
     check_all_needed_data_for_step(project_cfg, 1)
 
     segment_cfg = project_cfg.get_segmentation_config()
@@ -70,6 +70,9 @@ def segment_video():
     }
 
     try:
+        logger.info(
+            "StarDist inference with GPU is much slower than CPU. GPU will be disable"
+        )
         func = SEGMENTS_FACTORY[mode]
     except KeyError:
         raise ValueError(

@@ -1,7 +1,9 @@
 # %%
 import argparse
 import logging
+import os
 import re
+import sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +24,8 @@ from ndx_multichannel_volume import (
     OpticalChannelReferences,
 )
 from tqdm import tqdm
+
+os.environ["HDF5_PLUGIN_PATH"] = hdf5plugin.PLUGINS_PATH
 
 
 def rigid(sx, sy, rot, tx, ty) -> np.ndarray:
@@ -323,7 +327,6 @@ def generate_calcium_imaging_data(
     # 3. Create the Imaging Volume
     imaging_vol = ImagingVolume(
         name="WholeBrainVolume",
-        optical_channel=[name for (name, _) in channels],
         optical_channel_plus=optical_channel_plus,
         order_optical_channels=order_optical_channels,
         device=device,
@@ -332,7 +335,8 @@ def generate_calcium_imaging_data(
         description="Whole Brain Calcium imaging setup",
         location="Whole Brain",
     )
-
+    # Assign optical_channel to suppress warning.
+    imaging_vol.optical_channel.extend(optical_channel_plus)
     nwb_obj.add_imaging_plane(imaging_vol)  # type: ignore
     # 4. Handle Compression
     # Note: Ensure data is an Iterable or a Chunked array if it's huge
@@ -385,13 +389,20 @@ CHANNELS = {
 
 # Lab information
 labcode = "TOY"
-institution = "UTokyo"
+institution = "the University of Tokyo"
 
+# %%
+
+"""
+In the mif please make sure that your reference channels was assign to the first channel.
+path1 = "260214_cam2_tdTomato.tif"
+"""
 
 # Strain information
 strain_name = "TOY1"
 strain_info = "Is[H20::nls3::GCaMP6f+H20::nls2::tdTomato]; lite-1(ce314) gur-3(ok2245)"
 
+# %%
 # Acquisition information
 reference_channel = CHANNELS["tdTomato"]
 indicator_channel = CHANNELS["GCaMP"]
@@ -402,6 +413,7 @@ grid_spacing_xyz = (0.35, 0.35, 1.5)  # unit: micrometer per pixel
 # %%
 
 logger = logging.getLogger(__name__)
+logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def main():
@@ -412,7 +424,7 @@ def main():
 
     mif_path = Path(args.input)
 
-    if not mif_path.is_file() or mif_path.suffix == ".mif":
+    if not mif_path.is_file() or not mif_path.suffix == ".mif":
         parser.error(f"Input file is is not a valid mif file. {args.input}")
 
     nwb_obj = init_nwbfile(
@@ -443,3 +455,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# %%
