@@ -4952,7 +4952,7 @@ wheels = [
 [[package]]
 name = "wbfm"
 version = "1.4.0"
-source = { git = "https://github.com/lycantrope/wbfm?rev=main#da9cb48498583b2a491c91fd6774bd93345889c9" }
+source = { git = "https://github.com/lycantrope/wbfm?rev=main#fff2e18ed259603a401fe0957da89f82dca5cd27" }
 
 [[package]]
 name = "wcwidth"
